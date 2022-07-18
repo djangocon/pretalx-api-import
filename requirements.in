@@ -1,0 +1,6 @@
+environs
+python-frontmatter
+python-slugify
+requests
+rich
+typer
