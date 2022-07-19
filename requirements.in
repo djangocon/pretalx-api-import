@@ -2,6 +2,7 @@ environs
 pydantic
 python-frontmatter
 python-slugify
+pytz
 requests
 rich
 typer
