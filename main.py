@@ -218,34 +218,45 @@ def main(input_filename: Path, output_folder: Path = None):
             talk_title_slug = slugify(row["Proposal title"])
 
             post = frontmatter.loads(row["Description"])
-            post["abstract"] = row["Abstract"]
-            post["accepted"] = True if proposal_state == "accepted" else False
-            post["category"] = talk_format
-            # post["difficulty"] = submission["talk"]["audience_level"]
-            post["layout"] = "session-details"
-            post["permalink"] = f"/{talk_format}/{talk_title_slug}/"
-            post["published"] = True
-            post["sitemap"] = True
-            post["slug"] = talk_title_slug
-            post["tags"] = row["Tags"]
-            post["title"] = row["Proposal title"]
+            try:
+                data = Schedule(
+                    abstract=row["Abstract"],
+                    accepted=True if proposal_state == "accepted" else False,
+                    category=talk_format,
+                    # post["difficulty"] = submission["talk"]["audience_level"],
+                    layout="session-details",
+                    permalink=f"/{talk_format}/{talk_title_slug}/",
+                    published=True,
+                    sitemap=True,
+                    slug=talk_title_slug,
+                    tags=row["Tags"],
+                    title=row["Proposal title"],
+                    # print(row["Session type"]["en"]),
+                    # print(row["Speaker names"]),
+                    # print(row["Track"]["en"]),
+                    # # TODO: Scheduling info...,
+                    # post["date"] = f"{start_date} 10:00",
+                    room="",
+                    track="t0",
+                    # TODO: Determine if we still need summary (I don't think we do),
+                    summary=row["Abstract"],
+                    # todo: refactor template layout to support multiple authors,
+                    # presenters=row["Speaker names"],
+                )
+                # print(frontmatter.dumps(post))
 
-            # print(row["Session type"]["en"])
-            # print(row["Speaker names"])
-            # print(row["Track"]["en"])
+                post.metadata.update(data.dict(exclude_unset=True))
 
-            # # TODO: Scheduling info...
-            # post["date"] = f"{start_date} 10:00"
-            # post["room"] = ""
-            # post["track"] = "t0"
+                # TODO: save...
+                # print(frontmatter.dumps(post))
 
-            # TODO: Determine if we still need summary (I don't think we do)
-            post["summary"] = ""
+            except ValidationError as e:
+                print(f"[red]{row}[/red]")
+                print(e.json())
 
-            # todo: refactor template layout to support multiple authors
-            post["presenters"] = row["Speaker names"]
-
-            # print(frontmatter.dumps(post))
+            except Exception as e:
+                print(f"[red]{e}[/red]")
+                print(row)
 
 
 if __name__ == "__main__":
