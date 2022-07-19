@@ -123,7 +123,7 @@ POST_TYPES = [
     {"path": "_pages", "class_name": Page},
     {"path": "_posts", "class_name": Post},
     {"path": "_presenters", "class_name": Presenter},
-    {"path": "_schedule/talks", "class_name": Schedule},
+    {"path": "_schedule", "class_name": Schedule},
 ]
 
 TRACKS = {
@@ -264,7 +264,7 @@ def main(input_filename: Path, output_folder: Path = None):
 
                 if output_folder is not None:
                     output_path: Path = (
-                        output_folder / POST_TYPES[-1]["path"]
+                        output_folder / POST_TYPES[-1]["path"] / data.category
                         # TODO please make this less ugly
                         / f"{data.date.year}-{data.date.month:0>2}-{data.date.day:0>2}-"
                         f"{data.date.hour:0>2}-{data.date.minute:0>2}-{data.track}-{data.slug}.md"
