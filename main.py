@@ -181,8 +181,11 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
             )
             post.metadata.update(data.dict(exclude_unset=True))
 
-            # TODO: save...
-            # print(frontmatter.dumps(post))
+            if output_folder is not None:
+                output_path: Path = (
+                    output_folder / POST_TYPES[-2]["path"] / f"{slugify(data.name)}.md"
+                )
+                output_path.write_text(frontmatter.dumps(post))
 
         except ValidationError as e:
             print(f"[red]{row}[/red]")
