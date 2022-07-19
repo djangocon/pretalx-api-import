@@ -1,4 +1,5 @@
 environs
+pydantic
 python-frontmatter
 python-slugify
 requests
