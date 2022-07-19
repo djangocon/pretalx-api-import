@@ -12,7 +12,7 @@ from slugify import slugify
 from typing import List, Optional
 
 
-CONFERENCE_TZ = pytz.timezone("America/Chicago")
+CONFERENCE_TZ = pytz.timezone("America/Los_Angeles")
 
 
 class FrontmatterModel(BaseModel):
