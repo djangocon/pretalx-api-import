@@ -1,51 +1,215 @@
 # import requests
 import frontmatter
 import json
+import pytz
 import typer
 
+from datetime import datetime
 from pathlib import Path
+from pydantic import BaseModel, Field, ValidationError
 from rich import print
 from slugify import slugify
+from typing import List, Optional
+
+
+CONFERENCE_TZ = pytz.timezone("America/Chicago")
+
+
+class FrontmatterModel(BaseModel):
+    """
+    Our base class for our default "Frontmatter" fields.
+    """
+
+    date: Optional[str]  # TODO: Parse/fix...
+    layout: str
+    permalink: Optional[str]
+    published: bool = True
+    redirect_from: Optional[List[str]]
+    redirect_to: Optional[str]  # via the jekyll-redirect-from plugin
+    sitemap: Optional[bool]
+    title: str
+
+    class Config:
+        extra = "allow"
+
+
+class Job(FrontmatterModel):
+    hidden: bool = False
+    layout: str = "base"
+    name: str
+    title: Optional[str]
+    website: str
+    website_text: str = "Apply here"
+
+
+class Organizer(FrontmatterModel):
+    github: Optional[str]
+    hidden: bool = False
+    layout: str = "base"
+    name: str
+    photo_url: Optional[str]
+    slug: Optional[str]
+    title: Optional[str]
+    twitter: Optional[str]
+    website: Optional[str]
+
+
+class Page(FrontmatterModel):
+    description: Optional[str]
+    heading: Optional[str]
+    hero_text_align: Optional[str]  # homepage related
+    hero_theme: Optional[str]  # homepage related
+    layout: Optional[str]
+    testimonial_img: Optional[str]  # homepage related
+    testimonial_img_mobile: Optional[str]  # homepage related
+    title: Optional[str]
+
+
+class Post(FrontmatterModel):
+    author: Optional[str] = None
+    category: Optional[str] = "General"  # TODO: build a list of these
+    categories: Optional[List[str]]
+    date: datetime  # YYYY-MM-DD HH:MM:SS +/-TTTT
+    image: Optional[str] = None
+    layout: Optional[str] = "post"
+    slug: Optional[str] = None
+    tags: Optional[List[str]]
+
+
+class Presenter(FrontmatterModel):
+    company: Optional[str]
+    github: Optional[str]
+    hidden: bool = False
+    layout: str = "speaker-template"
+    name: str
+    override_schedule_title: Optional[str] = None
+    photo_url: Optional[str]
+    role: Optional[str]
+    title: Optional[str]
+    twitter: Optional[str]
+    website: Optional[str]
+    website_text: str = "Apply here"
+
+
+class Schedule(FrontmatterModel):
+    abstract: Optional[str] = None
+    accepted: bool = False
+    category: Optional[str] = "talk"
+    difficulty: Optional[str] = "All"
+    image: Optional[str]
+    layout: Optional[str] = "session-details"  # TODO: validate against _layouts/*.html
+    presenter_slugs: Optional[List[str]] = None
+    presenters: List[dict] = None  # TODO: break this into a sub-type
+    published: bool = False
+    room: Optional[str]
+    schedule: Optional[str]
+    schedule_layout: Optional[str] = Field(
+        alias="schedule-layout"
+    )  # TODO: Validate for breaks, lunch, etc
+    show_video_urls: Optional[bool]
+    slides_url: Optional[str]
+    summary: Optional[str]
+    tags: Optional[List[str]] = None
+    talk_slot: Optional[str] = "full"
+    track: Optional[str] = None
+    video_url: Optional[str]
+
+
+POST_TYPES = [
+    {"path": "_jobs", "class_name": Job},
+    {"path": "_organizers", "class_name": Organizer},
+    {"path": "_pages", "class_name": Page},
+    {"path": "_posts", "class_name": Post},
+    {"path": "_presenters", "class_name": Presenter},
+    {"path": "_schedule/talks", "class_name": Schedule},
+]
 
 
 app = typer.Typer()
 
 
 @app.command()
-def main(input_filename: Path, output_folder: Path = None):
-    typer.echo("process")
+def presenters(input_filename: Path, output_folder: Path = None):
     rows = json.loads(input_filename.read_text())
+    # [
+    #     "ID",
+    #     "Name",
+    #     "E-Mail",
+    #     "Biography",
+    #     "Picture",
+    #     "Proposal IDs",
+    #     "Proposal titles",
+    #     "Organization or Affiliation",
+    #     "URL",
+    #     "What is your T-shirt size?",
+    #     "Twitter handle",
+    # ]
+    print(rows[0])
+    print(f"Processing {len(rows)} rows...")
+    for row in rows:
+        try:
+            post = frontmatter.loads(row.get("Biography") or "")
+            data = Presenter(
+                company=row.get("Organization or Affiliation", ""),
+                # github: Optional[str]
+                hidden=False,
+                layout="speaker-template",
+                name=row.get("Name"),
+                # override_schedule_title: Optional[str] = None
+                photo_url=row.get("Picture", ""),
+                # role: Optional[str]
+                # title: Optional[str]
+                twitter=row.get("Twitter handle", ""),
+                website=row.get("URL", ""),
+                # website_text: str = "Apply here"
+            )
+            post.metadata.update(data.dict(exclude_unset=True))
 
-    # {
-    #     "Abstract": "",
-    #     "Average (mean) score": 0.0,
-    #     "created": "2022-05-31T10:24:20.588579+00:00",
-    #     "Description": "",
-    #     "Don't record this session.": False,
-    #     "Duration": 45,
-    #     "End": None,
-    #     "ID": "3NA7TZ",
-    #     "Internal notes": None,
-    #     "Language": "en",
-    #     "Median score": "2.00",
-    #     "Notes": "",
-    #     "Pending proposal state": None,
-    #     "Proposal state": "submitted",
-    #     "Proposal title": "",
-    #     "Resources": None,
-    #     "Room": None,
-    #     "Session image": "",
-    #     "Session type": {"en": "45-minute talks"},
-    #     "Show this session in public list of featured sessions.": False,
-    #     "Slot Count": 1,
-    #     "Speaker IDs": ["ID1234"],
-    #     "Speaker names": ["Firstname Lastname"],
-    #     "Start": None,
-    #     "Tags": None,
-    #     "Track": {"en": "General"},
-    # }
+            # TODO: save...
+            # print(frontmatter.dumps(post))
 
-    print(rows[0:4])
+        except ValidationError as e:
+            print(f"[red]{row}[/red]")
+            print(e.json())
+
+        except Exception as e:
+            print(f"[red]{e}[/red]")
+            print(row)
+
+
+@app.command()
+def main(input_filename: Path, output_folder: Path = None):
+    rows = json.loads(input_filename.read_text())
+    # [
+    #     "ID",
+    #     "Proposal title",
+    #     "Proposal state",
+    #     "Pending proposal state",
+    #     "Session type",
+    #     "Track",
+    #     "created",
+    #     "Tags",
+    #     "Abstract",
+    #     "Description",
+    #     "Notes",
+    #     "Internal notes",
+    #     "Duration",
+    #     "Slot Count",
+    #     "Language",
+    #     "Show this session in public list of featured sessions.",
+    #     "Don't record this session.",
+    #     "Session image",
+    #     "Speaker IDs",
+    #     "Speaker names",
+    #     "Room",
+    #     "Start",
+    #     "End",
+    #     "Median score",
+    #     "Average (mean) score",
+    #     "Resources",
+    # ]
+    print(rows[0].keys())
+    print(rows[0])
     print(f"Processing {len(rows)} rows...")
     for row in rows:
         proposal_state = row["Proposal state"]
