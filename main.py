@@ -5,6 +5,7 @@ import pytz
 import typer
 
 from datetime import datetime
+from dateutil.parser import parse
 from pathlib import Path
 from pydantic import BaseModel, Field, ValidationError
 from rich import print
@@ -20,7 +21,7 @@ class FrontmatterModel(BaseModel):
     Our base class for our default "Frontmatter" fields.
     """
 
-    date: Optional[str]  # TODO: Parse/fix...
+    date: Optional[datetime]
     layout: str
     permalink: Optional[str]
     published: bool = True
@@ -109,6 +110,7 @@ class Schedule(FrontmatterModel):
     show_video_urls: Optional[bool]
     slides_url: Optional[str]
     summary: Optional[str]
+    end_date: Optional[datetime] = None
     tags: Optional[List[str]] = None
     talk_slot: Optional[str] = "full"
     track: Optional[str] = None
@@ -121,15 +123,33 @@ POST_TYPES = [
     {"path": "_pages", "class_name": Page},
     {"path": "_posts", "class_name": Post},
     {"path": "_presenters", "class_name": Presenter},
-    {"path": "_schedule/talks", "class_name": Schedule},
+    {"path": "_schedule", "class_name": Schedule},
 ]
+
+TRACKS = {
+    "Salon A-E": "t0",
+    "Salon F-H": "t1",
+    # TODO figure out if we need to tweak the template for online talks or
+    # how we want to adjust this
+    "Online talks": "t2",
+    # tutorials
+    "Balboa I & II": "t0",
+    "Sierra 5": "t1",
+    "Cabrillo 1": "t2",
+}
+
+TALK_FORMATS = {
+    "25-minute talks": "talks",
+    "45-minute talks": "talks",
+    "Tutorials": "tutorials",
+}
 
 
 app = typer.Typer()
 
 
 @app.command()
-def presenters(input_filename: Path, output_folder: Path = None):
+def presenters(input_filename: Path, output_folder: Optional[Path] = None):
     rows = json.loads(input_filename.read_text())
     # [
     #     "ID",
@@ -165,8 +185,11 @@ def presenters(input_filename: Path, output_folder: Path = None):
             )
             post.metadata.update(data.dict(exclude_unset=True))
 
-            # TODO: save...
-            # print(frontmatter.dumps(post))
+            if output_folder is not None:
+                output_path: Path = (
+                    output_folder / POST_TYPES[-2]["path"] / f"{slugify(data.name)}.md"
+                )
+                output_path.write_text(frontmatter.dumps(post))
 
         except ValidationError as e:
             print(f"[red]{row}[/red]")
@@ -222,33 +245,35 @@ def main(input_filename: Path, output_folder: Path = None):
                 data = Schedule(
                     abstract=row["Abstract"],
                     accepted=True if proposal_state == "accepted" else False,
-                    category=talk_format,
+                    category=TALK_FORMATS[talk_format],
                     # post["difficulty"] = submission["talk"]["audience_level"],
                     layout="session-details",
-                    permalink=f"/{talk_format}/{talk_title_slug}/",
+                    permalink=f"/{TALK_FORMATS[talk_format]}/{talk_title_slug}/",
                     published=True,
                     sitemap=True,
                     slug=talk_title_slug,
                     tags=row["Tags"],
                     title=row["Proposal title"],
-                    # print(row["Session type"]["en"]),
-                    # print(row["Speaker names"]),
-                    # print(row["Track"]["en"]),
-                    # # TODO: Scheduling info...,
-                    # post["date"] = f"{start_date} 10:00",
-                    room="",
-                    track="t0",
-                    # TODO: Determine if we still need summary (I don't think we do),
-                    summary=row["Abstract"],
+                    presenter_slugs=[slugify(name) for name in row["Speaker names"]],
+                    room=row["Room"]["en"],
+                    track=TRACKS.get(row["Room"]["en"], "t0"),
+                    date=parse(row["Start"]).astimezone(CONFERENCE_TZ),
+                    end_date=parse(row["End"]).astimezone(CONFERENCE_TZ),
+                    summary="",
                     # todo: refactor template layout to support multiple authors,
                     # presenters=row["Speaker names"],
                 )
-                # print(frontmatter.dumps(post))
 
                 post.metadata.update(data.dict(exclude_unset=True))
 
-                # TODO: save...
-                # print(frontmatter.dumps(post))
+                if output_folder is not None:
+                    output_path: Path = (
+                        output_folder / POST_TYPES[-1]["path"] / data.category
+                        # TODO please make this less ugly
+                        / f"{data.date.year}-{data.date.month:0>2}-{data.date.day:0>2}-"
+                        f"{data.date.hour:0>2}-{data.date.minute:0>2}-{data.track}-{data.slug}.md"
+                    )
+                    output_path.write_text(frontmatter.dumps(post))
 
             except ValidationError as e:
                 print(f"[red]{row}[/red]")

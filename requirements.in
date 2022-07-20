@@ -1,5 +1,6 @@
 environs
 pydantic
+python-dateutil
 python-frontmatter
 python-slugify
 pytz
