@@ -172,7 +172,7 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                 # is there already a pic in the directory?
                 presenter_path: Path = output_folder / "static" / "img" / "presenters"
                 if shots := list(presenter_path.glob(f"{slugify(row.get('Name'))}.*")):
-                    default_profile_pic = f'/static/img/presenters/{shots[0].name}'
+                    default_profile_pic = f"/static/img/presenters/{shots[0].name}"
                 else:
                     default_profile_pic = None
             post = frontmatter.loads(row.get("Biography") or "")
@@ -196,7 +196,7 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                 output_path: Path = (
                     output_folder / POST_TYPES[-2]["path"] / f"{slugify(data.name)}.md"
                 )
-                output_path.write_text(frontmatter.dumps(post) + '\n')
+                output_path.write_text(frontmatter.dumps(post) + "\n")
 
         except ValidationError as e:
             print(f"[red]{row}[/red]")
@@ -251,7 +251,9 @@ def main(input_filename: Path, output_folder: Path = None):
             try:
                 data = Schedule(
                     abstract=row["Abstract"],
-                    accepted=True if proposal_state in {"accepted", "confirmed"} else False,
+                    accepted=True
+                    if proposal_state in {"accepted", "confirmed"}
+                    else False,
                     category=TALK_FORMATS[talk_format],
                     # post["difficulty"] = submission["talk"]["audience_level"],
                     layout="session-details",
