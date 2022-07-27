@@ -194,6 +194,9 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                 website=row.get("URL", ""),
                 # website_text: str = "Apply here"
             )
+            if data.twitter and data.twitter.startswith("@"):
+                # strip leading @ if present
+                data.twitter = data.twitter[1:]
             post.metadata.update(data.dict(exclude_unset=True))
 
             if output_folder is not None:
