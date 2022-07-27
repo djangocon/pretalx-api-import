@@ -183,7 +183,7 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                 layout="speaker-template",
                 name=row.get("Name"),
                 # override_schedule_title: Optional[str] = None
-                photo_url=row.get("Picture") or default_profile_pic,
+                photo_url=default_profile_pic or row.get("Picture", ""),
                 # role: Optional[str]
                 # title: Optional[str]
                 twitter=row.get("Twitter handle", ""),
