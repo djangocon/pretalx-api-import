@@ -257,11 +257,11 @@ def main(input_filename: Path, output_folder: Path = None):
             post = frontmatter.loads(row["Description"])
             start_date = None
             end_date = None
-            if raw_start_date := row.get('Start'):
+            if raw_start_date := row.get("Start"):
                 start_date = parse(raw_start_date).astimezone(CONFERENCE_TZ)
-            if raw_end_date := row.get('End'):
+            if raw_end_date := row.get("End"):
                 end_date = parse(raw_end_date).astimezone(CONFERENCE_TZ)
-            if start_date and TALK_FORMATS.get(talk_format) == 'tutorials':
+            if start_date and TALK_FORMATS.get(talk_format) == "tutorials":
                 end_date = start_date + TUTORIAL_LENGTH_OVERRIDE
             try:
                 data = Schedule(
