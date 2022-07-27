@@ -6,6 +6,7 @@ import typer
 
 from datetime import datetime
 from dateutil.parser import parse
+from dateutil.relativedelta import relativedelta
 from pathlib import Path
 from pydantic import BaseModel, Field, ValidationError
 from rich import print
@@ -14,6 +15,9 @@ from typing import List, Optional
 
 
 CONFERENCE_TZ = pytz.timezone("America/Los_Angeles")
+# we listed tutorials as being 180 minutes in pretalx but we
+# want to have them take up 210 minutes in the layout
+TUTORIAL_LENGTH_OVERRIDE = relativedelta(hours=3, minutes=30)
 
 
 class FrontmatterModel(BaseModel):
@@ -248,6 +252,14 @@ def main(input_filename: Path, output_folder: Path = None):
             talk_title_slug = slugify(row["Proposal title"])
 
             post = frontmatter.loads(row["Description"])
+            start_date = None
+            end_date = None
+            if raw_start_date := row.get('Start'):
+                start_date = parse(raw_start_date).astimezone(CONFERENCE_TZ)
+            if raw_end_date := row.get('End'):
+                end_date = parse(raw_end_date).astimezone(CONFERENCE_TZ)
+            if start_date and TALK_FORMATS.get(talk_format) == 'tutorials':
+                end_date = start_date + TUTORIAL_LENGTH_OVERRIDE
             try:
                 data = Schedule(
                     abstract=row["Abstract"],
@@ -266,8 +278,8 @@ def main(input_filename: Path, output_folder: Path = None):
                     presenter_slugs=[slugify(name) for name in row["Speaker names"]],
                     room=row["Room"]["en"],
                     track=TRACKS.get(row["Room"]["en"], "t0"),
-                    date=parse(row["Start"]).astimezone(CONFERENCE_TZ),
-                    end_date=parse(row["End"]).astimezone(CONFERENCE_TZ),
+                    date=start_date,
+                    end_date=end_date,
                     summary="",
                     # todo: refactor template layout to support multiple authors,
                     # presenters=row["Speaker names"],
