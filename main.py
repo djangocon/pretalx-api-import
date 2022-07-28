@@ -3,6 +3,7 @@ import frontmatter
 import json
 import pytz
 import typer
+import requests
 
 from datetime import datetime
 from dateutil.parser import parse
@@ -192,9 +193,41 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                 website=row.get("URL", ""),
                 # website_text: str = "Apply here"
             )
+            if data.photo_url and data.photo_url.startswith("http"):
+                # fetch the externally hosted image and save it ourselves
+                try:
+                    response = requests.get(data.photo_url)
+                    response.raise_for_status()
+                except (requests.ConnectionError, requests.RequestException) as exc:
+                    typer.secho(
+                        f"Error downloading profile picture for {data.name}: {exc}",
+                        fg="red",
+                    )
+                else:
+                    if "." in data.photo_url.rsplit("/", 1):
+                        filename = (
+                            f'{slugify(data.name)}.{data.photo_url.rsplit(".", 1)[-1]}'
+                        )
+                    else:
+                        content_type = response.headers["Content-Type"]
+                        if (
+                            content_type.startswith("image/")
+                            and "+" not in content_type
+                        ):
+                            filename = f'{slugify(data.name)}.{content_type.rsplit("/", 1)[-1]}'
+                        else:
+                            raise ValueError(
+                                f"Don't know how to handle content type {content_type}"
+                            )
+
+                    image_output_path: Path = presenter_path / filename
+                    image_output_path.write_bytes(response.content)
+                    data.photo_url = f"/static/img/presenters/{image_output_path.name}"
+
             if data.twitter and data.twitter.startswith("@"):
                 # strip leading @ if present
                 data.twitter = data.twitter[1:]
+
             post.metadata.update(data.dict(exclude_unset=True))
 
             if output_folder is not None:
