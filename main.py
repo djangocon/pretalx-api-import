@@ -109,9 +109,7 @@ class Schedule(FrontmatterModel):
     published: bool = False
     room: Optional[str]
     schedule: Optional[str]
-    schedule_layout: Optional[str] = Field(
-        alias="schedule-layout"
-    )  # TODO: Validate for breaks, lunch, etc
+    schedule_layout: Optional[str]  # TODO: Validate for breaks, lunch, etc
     show_video_urls: Optional[bool]
     slides_url: Optional[str]
     summary: Optional[str]
@@ -226,6 +224,10 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                     image_output_path.write_bytes(response.content)
                     data.photo_url = f"/static/img/presenters/{image_output_path.name}"
 
+            if data.twitter and data.twitter.startswith("@"):
+                # strip leading @ if present
+                data.twitter = data.twitter[1:]
+
             post.metadata.update(data.dict(exclude_unset=True))
 
             if output_folder is not None:
@@ -292,6 +294,10 @@ def main(input_filename: Path, output_folder: Path = None):
                 end_date = parse(raw_end_date).astimezone(CONFERENCE_TZ)
             if start_date and TALK_FORMATS.get(talk_format) == "tutorials":
                 end_date = start_date + TUTORIAL_LENGTH_OVERRIDE
+            room = row["Room"]["en"]
+            kwargs = {}
+            if "Online" in room:
+                kwargs["schedule_layout"] = "full"
             try:
                 data = Schedule(
                     abstract=row["Abstract"],
@@ -313,6 +319,7 @@ def main(input_filename: Path, output_folder: Path = None):
                     date=start_date,
                     end_date=end_date,
                     summary="",
+                    **kwargs,
                     # todo: refactor template layout to support multiple authors,
                     # presenters=row["Speaker names"],
                 )
