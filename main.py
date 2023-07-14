@@ -243,13 +243,9 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
             if data.twitter and data.twitter.startswith("@"):
                 # strip leading @ if present
                 data.twitter = data.twitter[1:]
-            if (
-                data.mastodon
-                and not data.mastodon.startswith("@")
-                and not data.mastodon.startswith("https:")
-            ):
-                # prepend the @
-                data.mastodon = f"@{data.mastodon}"
+
+            if data.mastodon:
+                data.mastodon = migrate_mastodon_handle(handle=data.mastodon)
 
             post.metadata.update(data.dict(exclude_unset=True))
 
@@ -367,6 +363,14 @@ def main(input_filename: Path, output_folder: Path = None):
             except Exception as e:
                 print(f"[red]{e}[/red]")
                 print(row)
+
+
+def migrate_mastodon_handle(*, handle: str) -> str:
+    if not handle.startswith("@"):
+        return handle
+
+    username, domain = handle[1:].split("@")
+    return f"https://{domain}/@{username}"
 
 
 if __name__ == "__main__":
