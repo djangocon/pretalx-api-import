@@ -316,6 +316,8 @@ def main(input_filename: Path, output_folder: Path = None):
             if raw_end_date := row.get("End"):
                 end_date = parse(raw_end_date).astimezone(CONFERENCE_TZ)
             if start_date and TALK_FORMATS.get(talk_format) == "tutorials":
+                # tutorials are a week early in 2023
+                start_date = start_date - relativedelta(weeks=1)
                 end_date = start_date + TUTORIAL_LENGTH_OVERRIDE
             room = row["Room"]["en"]
             kwargs = {}
