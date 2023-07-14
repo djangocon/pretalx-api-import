@@ -135,15 +135,15 @@ POST_TYPES = [
 ]
 
 TRACKS = {
-    "Salon A-E": "t0",
-    "Salon F-H": "t1",
+    "Grand Ballroom": "t0",
+    "Junior Ballroom": "t1",
     # TODO figure out if we need to tweak the template for online talks or
     # how we want to adjust this
     "Online talks": "t2",
     # tutorials
-    "Balboa I & II": "t0",
-    "Sierra 5": "t1",
-    "Cabrillo 1": "t2",
+    "Tutorial Track A": "t0",
+    "Tutorial Track B": "t1",
+    "Tutorial Track C": "t2",
 }
 
 TALK_FORMATS = {
