@@ -6,6 +6,7 @@ import typer
 import requests
 
 from datetime import datetime
+from itertools import count
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
@@ -87,11 +88,14 @@ class Presenter(FrontmatterModel):
     github: Optional[str]
     hidden: bool = False
     layout: str = "speaker-template"
+    mastodon: Optional[str] = None
     name: str
     override_schedule_title: Optional[str] = None
+    permalink: str
     pronouns: Optional[str]
     photo_url: Optional[str]
     role: Optional[str]
+    slug: str
     title: Optional[str]
     twitter: Optional[str]
     website: Optional[str]
@@ -166,10 +170,12 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
     #     "Organization or Affiliation",
     #     "URL",
     #     "What is your T-shirt size?",
+    #     "What is your mastodon/fediverse handle?"
     #     "Twitter handle",
     # ]
     print(rows[0])
     print(f"Processing {len(rows)} rows...")
+    anon_speaker_counter = count()
     for row in rows:
         try:
             if output_folder is not None:
@@ -180,15 +186,21 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                 else:
                     default_profile_pic = None
             post = frontmatter.loads(row.get("Biography") or "")
+            name = row.get('Name')
+            if not name:
+                name = f'Anonymous speaker {next(anon_speaker_counter)}'
             data = Presenter(
                 company=row.get("Organization or Affiliation", ""),
                 # github: Optional[str]
                 hidden=False,
                 layout="speaker-template",
-                name=row.get("Name"),
+                mastodon=row.get("What is your mastodon/fediverse handle?", ''),
+                name=name,
                 # override_schedule_title: Optional[str] = None
+                permalink=f'/presenters/{slugify(name)}/',
                 photo_url=default_profile_pic or row.get("Picture", ""),
                 # role: Optional[str]
+                slug=slugify(name),
                 # title: Optional[str]
                 twitter=row.get("Twitter handle", ""),
                 website=row.get("URL", ""),
@@ -228,6 +240,9 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
             if data.twitter and data.twitter.startswith("@"):
                 # strip leading @ if present
                 data.twitter = data.twitter[1:]
+            if data.mastodon and not data.mastodon.startswith('@') and not data.mastodon.startswith('https:'):
+                # prepend the @
+                data.mastodon = f'@{data.mastodon}'
 
             post.metadata.update(data.dict(exclude_unset=True))
 
