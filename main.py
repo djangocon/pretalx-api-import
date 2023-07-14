@@ -185,7 +185,10 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                     default_profile_pic = f"/static/img/presenters/{shots[0].name}"
                 else:
                     default_profile_pic = None
-            post = frontmatter.loads(row.get("Biography") or "")
+            bio = row.get("Biography") or ""
+            post = frontmatter.loads(
+                "\n".join(line.rstrip() for line in bio.splitlines()) or ""
+            )
             name = row.get("Name")
             if not name:
                 name = f"Anonymous speaker {next(anon_speaker_counter)}"
