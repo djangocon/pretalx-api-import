@@ -186,18 +186,18 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                 else:
                     default_profile_pic = None
             post = frontmatter.loads(row.get("Biography") or "")
-            name = row.get('Name')
+            name = row.get("Name")
             if not name:
-                name = f'Anonymous speaker {next(anon_speaker_counter)}'
+                name = f"Anonymous speaker {next(anon_speaker_counter)}"
             data = Presenter(
                 company=row.get("Organization or Affiliation", ""),
                 # github: Optional[str]
                 hidden=False,
                 layout="speaker-template",
-                mastodon=row.get("What is your mastodon/fediverse handle?", ''),
+                mastodon=row.get("What is your mastodon/fediverse handle?", ""),
                 name=name,
                 # override_schedule_title: Optional[str] = None
-                permalink=f'/presenters/{slugify(name)}/',
+                permalink=f"/presenters/{slugify(name)}/",
                 photo_url=default_profile_pic or row.get("Picture", ""),
                 # role: Optional[str]
                 slug=slugify(name),
@@ -240,9 +240,13 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
             if data.twitter and data.twitter.startswith("@"):
                 # strip leading @ if present
                 data.twitter = data.twitter[1:]
-            if data.mastodon and not data.mastodon.startswith('@') and not data.mastodon.startswith('https:'):
+            if (
+                data.mastodon
+                and not data.mastodon.startswith("@")
+                and not data.mastodon.startswith("https:")
+            ):
                 # prepend the @
-                data.mastodon = f'@{data.mastodon}'
+                data.mastodon = f"@{data.mastodon}"
 
             post.metadata.update(data.dict(exclude_unset=True))
 
