@@ -15,7 +15,7 @@ from slugify import slugify
 from typing import List, Optional
 
 
-CONFERENCE_TZ = pytz.timezone("America/Los_Angeles")
+CONFERENCE_TZ = pytz.timezone("America/New_York")
 # we listed tutorials as being 180 minutes in pretalx but we
 # want to have them take up 210 minutes in the layout
 TUTORIAL_LENGTH_OVERRIDE = relativedelta(hours=3, minutes=30)
