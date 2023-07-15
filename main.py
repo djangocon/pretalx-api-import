@@ -6,6 +6,7 @@ import typer
 import requests
 
 from datetime import datetime
+from itertools import count
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
@@ -15,7 +16,7 @@ from slugify import slugify
 from typing import List, Optional
 
 
-CONFERENCE_TZ = pytz.timezone("America/Los_Angeles")
+CONFERENCE_TZ = pytz.timezone("America/New_York")
 # we listed tutorials as being 180 minutes in pretalx but we
 # want to have them take up 210 minutes in the layout
 TUTORIAL_LENGTH_OVERRIDE = relativedelta(hours=3, minutes=30)
@@ -87,11 +88,14 @@ class Presenter(FrontmatterModel):
     github: Optional[str]
     hidden: bool = False
     layout: str = "speaker-template"
+    mastodon: Optional[str] = None
     name: str
     override_schedule_title: Optional[str] = None
+    permalink: str
     pronouns: Optional[str]
     photo_url: Optional[str]
     role: Optional[str]
+    slug: str
     title: Optional[str]
     twitter: Optional[str]
     website: Optional[str]
@@ -131,15 +135,15 @@ POST_TYPES = [
 ]
 
 TRACKS = {
-    "Salon A-E": "t0",
-    "Salon F-H": "t1",
+    "Junior Ballroom": "t0",
+    "Grand Ballroom II-III": "t1",
     # TODO figure out if we need to tweak the template for online talks or
     # how we want to adjust this
     "Online talks": "t2",
     # tutorials
-    "Balboa I & II": "t0",
-    "Sierra 5": "t1",
-    "Cabrillo 1": "t2",
+    "Tutorial Track A": "t0",
+    "Tutorial Track B": "t1",
+    "Tutorial Track C": "t2",
 }
 
 TALK_FORMATS = {
@@ -166,10 +170,12 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
     #     "Organization or Affiliation",
     #     "URL",
     #     "What is your T-shirt size?",
+    #     "What is your mastodon/fediverse handle?"
     #     "Twitter handle",
     # ]
     print(rows[0])
     print(f"Processing {len(rows)} rows...")
+    anon_speaker_counter = count()
     for row in rows:
         try:
             if output_folder is not None:
@@ -179,16 +185,25 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                     default_profile_pic = f"/static/img/presenters/{shots[0].name}"
                 else:
                     default_profile_pic = None
-            post = frontmatter.loads(row.get("Biography") or "")
+            bio = row.get("Biography") or ""
+            post = frontmatter.loads(
+                "\n".join(line.rstrip() for line in bio.splitlines()) or ""
+            )
+            name = row.get("Name")
+            if not name:
+                name = f"Anonymous speaker {next(anon_speaker_counter)}"
             data = Presenter(
                 company=row.get("Organization or Affiliation", ""),
                 # github: Optional[str]
                 hidden=False,
                 layout="speaker-template",
-                name=row.get("Name"),
+                mastodon=row.get("What is your mastodon/fediverse handle?", ""),
+                name=name,
                 # override_schedule_title: Optional[str] = None
+                permalink=f"/presenters/{slugify(name)}/",
                 photo_url=default_profile_pic or row.get("Picture", ""),
                 # role: Optional[str]
+                slug=slugify(name),
                 # title: Optional[str]
                 twitter=row.get("Twitter handle", ""),
                 website=row.get("URL", ""),
@@ -228,6 +243,9 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
             if data.twitter and data.twitter.startswith("@"):
                 # strip leading @ if present
                 data.twitter = data.twitter[1:]
+
+            if data.mastodon:
+                data.mastodon = migrate_mastodon_handle(handle=data.mastodon)
 
             post.metadata.update(data.dict(exclude_unset=True))
 
@@ -294,6 +312,8 @@ def main(input_filename: Path, output_folder: Path = None):
             if raw_end_date := row.get("End"):
                 end_date = parse(raw_end_date).astimezone(CONFERENCE_TZ)
             if start_date and TALK_FORMATS.get(talk_format) == "tutorials":
+                # tutorials are a week early in 2023
+                start_date = start_date - relativedelta(weeks=1)
                 end_date = start_date + TUTORIAL_LENGTH_OVERRIDE
             room = row["Room"]["en"]
             kwargs = {}
@@ -343,6 +363,14 @@ def main(input_filename: Path, output_folder: Path = None):
             except Exception as e:
                 print(f"[red]{e}[/red]")
                 print(row)
+
+
+def migrate_mastodon_handle(*, handle: str) -> str:
+    if not handle.startswith("@"):
+        return handle
+
+    username, domain = handle[1:].split("@")
+    return f"https://{domain}/@{username}"
 
 
 if __name__ == "__main__":
