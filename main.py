@@ -344,6 +344,9 @@ def main(input_filename: Path, output_folder: Path = None):
                     # todo: refactor template layout to support multiple authors,
                     # presenters=row["Speaker names"],
                 )
+                if start_date.weekday() == 2:
+                    # if we're on Wednesday, make it full-width
+                    data.schedule_layout = 'full'
 
                 post.metadata.update(data.dict(exclude_unset=True))
 
