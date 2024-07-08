@@ -417,7 +417,9 @@ def main(input_filename: Path, output_folder: Path = None):
                     sitemap=True,
                     slug=talk_title_slug,
                     tags=row["Tags"],
-                    title=row["Proposal title"],
+                    title=row["Proposal title"]
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;"),
                     presenter_slugs=[slugify(name) for name in row["Speaker names"]],
                     room=room,
                     track=TRACKS.get(room, "t0"),
