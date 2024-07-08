@@ -34,7 +34,6 @@ class FrontmatterModel(BaseModel):
     date: pydatetime.datetime | None
     layout: str
     permalink: str | None
-    published: bool = True
     redirect_from: list[str] | None
     redirect_to: str | None  # via the jekyll-redirect-from plugin
     sitemap: bool | None
@@ -51,14 +50,10 @@ class FrontmatterModel(BaseModel):
 
     layout: str | None = None
     permalink: str | None = None
-    published: bool = True
     redirect_from: list[str] | None = None
     redirect_to: str | None = None  # via the jekyll-redirect-from plugin
     sitemap: bool | None = None
     title: str | None = None
-
-    class Config:
-        extra = "allow"
 
 
 class Social(BaseModel):
@@ -162,7 +157,8 @@ class Schedule(FrontmatterModel):
     room: str | None = None
     show_video_urls: bool | None = None
     slides_url: str | None = None
-    start_datetime: pydatetime.datetime | None
+    slug: str = "talk"
+    datetime: pydatetime.datetime | None
     tags: list[str] | None = None
     track: str | None = None
     video_url: str | None = None
@@ -407,16 +403,10 @@ def main(input_filename: Path, output_folder: Path = None):
             if raw_end_date := row.get("End"):
                 end_date = parse(raw_end_date).astimezone(CONFERENCE_TZ)
             if start_date and TALK_FORMATS.get(talk_format) == "tutorials":
-                # tutorials are a week early in 2023
-                start_date = start_date - relativedelta(weeks=1)
                 end_date = start_date + TUTORIAL_LENGTH_OVERRIDE
             room = row["Room"]["en"]
-            kwargs = {}
-            if "Online" in room:
-                kwargs["schedule_layout"] = "full"
             try:
                 data = Schedule(
-                    abstract=row["Abstract"],
                     accepted=True
                     if proposal_state in {"accepted", "confirmed"}
                     else False,
@@ -424,33 +414,30 @@ def main(input_filename: Path, output_folder: Path = None):
                     # post["difficulty"] = submission["talk"]["audience_level"],
                     layout="session-details",
                     permalink=f"/{TALK_FORMATS[talk_format]}/{talk_title_slug}/",
-                    published=True,
                     sitemap=True,
                     slug=talk_title_slug,
                     tags=row["Tags"],
                     title=row["Proposal title"],
                     presenter_slugs=[slugify(name) for name in row["Speaker names"]],
-                    room=row["Room"]["en"],
-                    track=TRACKS.get(row["Room"]["en"], "t0"),
-                    date=start_date,
-                    end_date=end_date,
+                    room=room,
+                    track=TRACKS.get(room, "t0"),
+                    datetime=start_date,
+                    end_datetime=end_date,
                     summary="",
-                    **kwargs,
-                    # todo: refactor template layout to support multiple authors,
-                    # presenters=row["Speaker names"],
                 )
-                if start_date.weekday() == 2:
-                    # if we're on Wednesday, make it full-width
-                    data.schedule_layout = "full"
 
-                post.metadata.update(data.dict(exclude_unset=True))
+                post.metadata.update(data.model_dump(exclude_unset=True))
 
                 if output_folder is not None:
                     output_path: Path = (
-                        output_folder / POST_TYPES[-1]["path"] / data.category
+                        output_folder
+                        / "src"
+                        / "_content"
+                        / POST_TYPES[-1]["path"]
+                        / data.category
                         # TODO please make this less ugly
-                        / f"{data.date.year}-{data.date.month:0>2}-{data.date.day:0>2}-"
-                        f"{data.date.hour:0>2}-{data.date.minute:0>2}-{data.track}-{data.slug}.md"
+                        / f"{data.datetime.year}-{data.datetime.month:0>2}-{data.datetime.day:0>2}-"
+                        f"{data.datetime.hour:0>2}-{data.datetime.minute:0>2}-{data.track}-{data.slug}.md"
                     )
                     output_path.write_text(frontmatter.dumps(post))
 
