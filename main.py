@@ -1,19 +1,23 @@
 # import requests
-import frontmatter
+import datetime as pydatetime  # rename is needed because of yaml conflict
 import json
+
+import frontmatter
 import pytz
 import typer
 import requests
 
-from datetime import datetime
 from itertools import count
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ValidationError
 from rich import print
 from slugify import slugify
-from typing import List, Optional
+
+from typing import Literal, Optional
+
+from pydantic import BaseModel
 
 
 CONFERENCE_TZ = pytz.timezone("America/New_York")
@@ -27,111 +31,187 @@ class FrontmatterModel(BaseModel):
     Our base class for our default "Frontmatter" fields.
     """
 
-    date: Optional[datetime]
+    date: pydatetime.datetime | None
     layout: str
-    permalink: Optional[str]
+    permalink: str | None
     published: bool = True
-    redirect_from: Optional[List[str]]
-    redirect_to: Optional[str]  # via the jekyll-redirect-from plugin
-    sitemap: Optional[bool]
+    redirect_from: list[str] | None
+    redirect_to: str | None  # via the jekyll-redirect-from plugin
+    sitemap: bool | None
     title: str
 
     class Config:
         extra = "allow"
 
 
-class Job(FrontmatterModel):
-    hidden: bool = False
-    layout: str = "base"
-    name: str
-    title: Optional[str]
-    website: str
-    website_text: str = "Apply here"
+class FrontmatterModel(BaseModel):
+    """
+    Our base class for our default "Frontmatter" fields.
+    """
+
+    layout: str | None = None
+    permalink: str | None = None
+    published: bool = True
+    redirect_from: list[str] | None = None
+    redirect_to: str | None = None  # via the jekyll-redirect-from plugin
+    sitemap: bool | None = None
+    title: str | None = None
+
+    class Config:
+        extra = "allow"
+
+
+class Social(BaseModel):
+    github: str | None = None
+    website: str | None = None
+    mastodon: str | None = None
+    twitter: str | None = None
+    bluesky: str | None = None
+    instagram: str | None = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.mastodon and self.mastodon.startswith("@"):
+            self.mastodon = migrate_mastodon_handle(handle=self.mastodon)
+            print(f"🚜 converting {self.mastodon=}")
 
 
 class Organizer(FrontmatterModel):
-    github: Optional[str]
     hidden: bool = False
     layout: str = "base"
     name: str
-    photo_url: Optional[str]
-    slug: Optional[str]
-    title: Optional[str]
-    twitter: Optional[str]
-    website: Optional[str]
+    photo: str | None = None
+    slug: str | None = None
+    title: str | None = None
+    social: Social | None = None
 
 
 class Page(FrontmatterModel):
-    description: Optional[str]
-    heading: Optional[str]
-    hero_text_align: Optional[str]  # homepage related
-    hero_theme: Optional[str]  # homepage related
-    layout: Optional[str]
-    testimonial_img: Optional[str]  # homepage related
-    testimonial_img_mobile: Optional[str]  # homepage related
-    title: Optional[str]
+    description: str | None = None
+    heading: str | None = None
+    hero_text_align: str | None = None  # homepage related
+    hero_theme: str | None = None  # homepage related
+    layout: str | None = None
+    testimonial_img: str | None = None  # homepage related
+    testimonial_img_mobile: str | None = None  # homepage related
+    title: str | None = None
 
 
 class Post(FrontmatterModel):
-    author: Optional[str] = None
-    category: Optional[str] = "General"  # TODO: build a list of these
-    categories: Optional[List[str]]
-    date: datetime  # YYYY-MM-DD HH:MM:SS +/-TTTT
-    image: Optional[str] = None
-    layout: Optional[str] = "post"
-    slug: Optional[str] = None
-    tags: Optional[List[str]]
+    author: str | None = None
+    category: str | None = "General"  # TODO: build a list of these
+    categories: list[str] | None = None
+    date: pydatetime.datetime  # YYYY-MM-DD HH:MM:SS +/-TTTT
+    image: str | None = None
+    layout: str | None = "post"
+    slug: str | None = None
+    tags: list[str] | None = []
 
 
 class Presenter(FrontmatterModel):
-    company: Optional[str]
-    github: Optional[str]
+    company: str | None = None
     hidden: bool = False
-    layout: str = "speaker-template"
-    mastodon: Optional[str] = None
     name: str
-    override_schedule_title: Optional[str] = None
-    permalink: str
-    pronouns: Optional[str]
-    photo_url: Optional[str]
-    role: Optional[str]
-    slug: str
-    title: Optional[str]
-    twitter: Optional[str]
-    website: Optional[str]
-    website_text: str = "Apply here"
+    override_schedule_title: str | None = None
+    pronouns: str | None = None
+    photo: str | None = None
+    role: str | None = None
+    slug: str | None = None
+    social: Social | None = None
+
+    def __init__(self, **data):
+        super().__init__(**data)
+
+        # if slugs are blank default them to slugify(name)
+        if not self.slug:
+            self.slug = slugify(self.name)
+
+        # if permalink is blank, let's build a new one
+        if not self.permalink:
+            self.permalink = f"/presenters/{self.slug}/"
 
 
 class Schedule(FrontmatterModel):
-    abstract: Optional[str] = None
     accepted: bool = False
-    category: Optional[str] = "talk"
-    difficulty: Optional[str] = "All"
-    image: Optional[str]
-    layout: Optional[str] = "session-details"  # TODO: validate against _layouts/*.html
-    presenter_slugs: Optional[List[str]] = None
-    presenters: List[dict] = None  # TODO: break this into a sub-type
-    published: bool = False
-    room: Optional[str]
-    schedule: Optional[str]
-    schedule_layout: Optional[str]  # TODO: Validate for breaks, lunch, etc
-    show_video_urls: Optional[bool]
-    slides_url: Optional[str]
-    summary: Optional[str]
-    end_date: Optional[datetime] = None
-    tags: Optional[List[str]] = None
-    talk_slot: Optional[str] = "full"
-    track: Optional[str] = None
-    video_url: Optional[str]
+    category: Literal[
+        "break",
+        "lunch",
+        "rooms",
+        "social-event",
+        "sprints",
+        "talks",
+        "tutorials",
+    ]
+    difficulty: str | None = "All"
+    end_datetime: pydatetime.datetime | None = None
+    group: None | (
+        Literal[
+            "break",
+            "lunch",
+            "rooms",
+            "social-event",
+            "sprints",
+            "talks",
+            "tutorials",
+        ]
+    ) = None
+
+    image: str | None = None
+    layout: str | None = "session-details"
+    presenter_slugs: list[str] | None = None
+    room: str | None = None
+    show_video_urls: bool | None = None
+    slides_url: str | None = None
+    start_datetime: pydatetime.datetime | None
+    tags: list[str] | None = None
+    track: str | None = None
+    video_url: str | None = None
+
+    def __init__(self, **data):
+        super().__init__(**data)
+
+        # TODO check with Michael if we still need both group and category
+        if self.group != self.category:
+            self.group = self.category
+
+
+class ManualScheduleEntry(BaseModel):
+    datetime: pydatetime.datetime
+    end_datetime: pydatetime.datetime
+    group: Literal[
+        "break",
+        "lunch",
+        "rooms",
+        "social-event",
+        "sprints",
+        "talks",
+        "tutorials",
+    ]
+    permalink: str | None
+    room: str
+    title: str
+    abstract: str = ""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.abstract:
+            self.abstract = self.room
+
+
+def migrate_mastodon_handle(*, handle: str) -> str:
+    if not handle.startswith("@"):
+        return handle
+
+    username, domain = handle[1:].split("@")
+    return f"https://{domain}/@{username}"
 
 
 POST_TYPES = [
-    {"path": "_jobs", "class_name": Job},
     {"path": "_organizers", "class_name": Organizer},
     {"path": "_pages", "class_name": Page},
     {"path": "_posts", "class_name": Post},
-    {"path": "_presenters", "class_name": Presenter},
-    {"path": "_schedule", "class_name": Schedule},
+    {"path": "presenters", "class_name": Presenter},
+    {"path": "schedule", "class_name": Schedule},
 ]
 
 TRACKS = {
@@ -157,7 +237,11 @@ app = typer.Typer()
 
 
 @app.command()
-def presenters(input_filename: Path, output_folder: Optional[Path] = None):
+def presenters(
+    input_filename: Path,
+    # typer doesn't support Path | None
+    output_folder: Optional[Path] = None,
+):
     rows = json.loads(input_filename.read_text())
     # [
     #     "ID",
@@ -177,14 +261,18 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
     print(f"Processing {len(rows)} rows...")
     anon_speaker_counter = count()
     for row in rows:
+        default_profile_pic = None
+        presenter_path: Path | None = None
         try:
             if output_folder is not None:
                 # is there already a pic in the directory?
-                presenter_path: Path = output_folder / "static" / "img" / "presenters"
+                presenter_path = output_folder / "src" / "_content" / "presenters"
                 if shots := list(presenter_path.glob(f"{slugify(row.get('Name'))}.*")):
-                    default_profile_pic = f"/static/img/presenters/{shots[0].name}"
-                else:
-                    default_profile_pic = None
+                    for shot in shots:
+                        if not shot.name.endswith(".md"):
+                            default_profile_pic = shot.name
+                            break
+
             bio = row.get("Biography") or ""
             post = frontmatter.loads(
                 "\n".join(line.rstrip() for line in bio.splitlines()) or ""
@@ -194,25 +282,26 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                 name = f"Anonymous speaker {next(anon_speaker_counter)}"
             data = Presenter(
                 company=row.get("Organization or Affiliation", ""),
-                # github: Optional[str]
                 hidden=False,
-                layout="speaker-template",
-                mastodon=row.get("What is your mastodon/fediverse handle?", ""),
                 name=name,
-                # override_schedule_title: Optional[str] = None
+                # override_schedule_title: str | None = None
                 permalink=f"/presenters/{slugify(name)}/",
-                photo_url=default_profile_pic or row.get("Picture", ""),
-                # role: Optional[str]
+                photo=default_profile_pic or row.get("Picture", ""),
+                # role: str | None
                 slug=slugify(name),
-                # title: Optional[str]
-                twitter=row.get("Twitter handle", ""),
-                website=row.get("URL", ""),
-                # website_text: str = "Apply here"
+                social=Social(
+                    github=row.get("github"),
+                    mastodon=row.get("What is your mastodon/fediverse handle?"),
+                    website=row.get("URL"),
+                    twitter=row.get("Twitter handle"),
+                    instagram=row.get("instagram"),
+                    bluesky=row.get("bluesky"),
+                ),
             )
-            if data.photo_url and data.photo_url.startswith("http"):
+            if presenter_path and data.photo and data.photo.startswith("http"):
                 # fetch the externally hosted image and save it ourselves
                 try:
-                    response = requests.get(data.photo_url)
+                    response = requests.get(data.photo)
                     response.raise_for_status()
                 except (requests.ConnectionError, requests.RequestException) as exc:
                     typer.secho(
@@ -220,9 +309,9 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
                         fg="red",
                     )
                 else:
-                    if "." in data.photo_url.rsplit("/", 1):
+                    if "." in data.photo.rsplit("/", 1):
                         filename = (
-                            f'{slugify(data.name)}.{data.photo_url.rsplit(".", 1)[-1]}'
+                            f'{slugify(data.name)}.{data.photo.rsplit(".", 1)[-1]}'
                         )
                     else:
                         content_type = response.headers["Content-Type"]
@@ -238,22 +327,28 @@ def presenters(input_filename: Path, output_folder: Optional[Path] = None):
 
                     image_output_path: Path = presenter_path / filename
                     image_output_path.write_bytes(response.content)
-                    data.photo_url = f"/static/img/presenters/{image_output_path.name}"
+                    data.photo = image_output_path.name
 
-            if data.twitter and data.twitter.startswith("@"):
+            if data.social.twitter and data.social.twitter.startswith("@"):
                 # strip leading @ if present
-                data.twitter = data.twitter[1:]
+                data.social.twitter = data.social.twitter[1:]
 
-            if data.mastodon:
-                data.mastodon = migrate_mastodon_handle(handle=data.mastodon)
+            if data.social.mastodon:
+                data.social.mastodon = migrate_mastodon_handle(
+                    handle=data.social.mastodon
+                )
 
-            post.metadata.update(data.dict(exclude_unset=True))
+            post.metadata.update(data.model_dump(exclude_unset=True))
 
             if output_folder is not None:
                 output_path: Path = (
-                    output_folder / POST_TYPES[-2]["path"] / f"{slugify(data.name)}.md"
+                    output_folder
+                    / "src"
+                    / "_content"
+                    / POST_TYPES[-2]["path"]
+                    / f"{slugify(data.name)}.md"
                 )
-                output_path.write_text(frontmatter.dumps(post) + "\n")
+                output_path.write_text(frontmatter.dumps(post, indent=4) + "\n")
 
         except ValidationError as e:
             print(f"[red]{row}[/red]")
@@ -346,7 +441,7 @@ def main(input_filename: Path, output_folder: Path = None):
                 )
                 if start_date.weekday() == 2:
                     # if we're on Wednesday, make it full-width
-                    data.schedule_layout = 'full'
+                    data.schedule_layout = "full"
 
                 post.metadata.update(data.dict(exclude_unset=True))
 
@@ -368,11 +463,14 @@ def main(input_filename: Path, output_folder: Path = None):
                 print(row)
 
 
-def migrate_mastodon_handle(*, handle: str) -> str:
+def migrate_mastodon_handle(*, handle: str) -> str | None:
     if not handle.startswith("@"):
         return handle
-
-    username, domain = handle[1:].split("@")
+    try:
+        username, domain = handle[1:].split("@")
+    except ValueError:
+        print(f"[red]Invalid mastodon value: {handle}[/red]")
+        return None
     return f"https://{domain}/@{username}"
 
 
