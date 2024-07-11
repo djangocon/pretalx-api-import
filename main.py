@@ -152,7 +152,7 @@ POST_TYPES = [
 
 TRACKS = {
     "Junior Ballroom": "t0",
-    "Grand Ballroom II-III": "t1",
+    "Grand Ballroom III": "t1",
     # TODO figure out if we need to tweak the template for online talks or
     # how we want to adjust this
     "Online talks": "t2",
