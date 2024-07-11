@@ -31,21 +31,6 @@ class FrontmatterModel(BaseModel):
     Our base class for our default "Frontmatter" fields.
     """
 
-    date: pydatetime.datetime | None
-    permalink: str | None
-    redirect_from: list[str] | None
-    redirect_to: str | None  # via the jekyll-redirect-from plugin
-    title: str
-
-    class Config:
-        extra = "allow"
-
-
-class FrontmatterModel(BaseModel):
-    """
-    Our base class for our default "Frontmatter" fields.
-    """
-
     permalink: str | None = None
     redirect_from: list[str] | None = None
     redirect_to: str | None = None  # via the jekyll-redirect-from plugin
