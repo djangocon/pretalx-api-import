@@ -34,6 +34,7 @@ class FrontmatterModel(BaseModel):
     permalink: str | None = None
     redirect_from: list[str] | None = None
     redirect_to: str | None = None  # via the jekyll-redirect-from plugin
+    sitemap: bool = True
     title: str | None = None
 
 
@@ -373,14 +374,18 @@ def main(input_filename: Path, output_folder: Path = None):
                         f"{data.datetime.hour:0>2}-{data.datetime.minute:0>2}-{data.track}-{slugify(data.title)}.md"
                     )
                     output_path.write_text(frontmatter.dumps(post))
+                else:
+                    print(frontmatter.dumps(post))
 
             except ValidationError as e:
                 print(f"[red]{row}[/red]")
                 print(e.json())
+                raise
 
             except Exception as e:
                 print(f"[red]{e}[/red]")
                 print(row)
+                raise
 
 
 def migrate_mastodon_handle(*, handle: str) -> str | None:
