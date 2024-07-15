@@ -31,24 +31,6 @@ class FrontmatterModel(BaseModel):
     Our base class for our default "Frontmatter" fields.
     """
 
-    date: pydatetime.datetime | None
-    layout: str
-    permalink: str | None
-    redirect_from: list[str] | None
-    redirect_to: str | None  # via the jekyll-redirect-from plugin
-    sitemap: bool | None
-    title: str
-
-    class Config:
-        extra = "allow"
-
-
-class FrontmatterModel(BaseModel):
-    """
-    Our base class for our default "Frontmatter" fields.
-    """
-
-    layout: str | None = None
     permalink: str | None = None
     redirect_from: list[str] | None = None
     redirect_to: str | None = None  # via the jekyll-redirect-from plugin
@@ -73,7 +55,6 @@ class Social(BaseModel):
 
 class Organizer(FrontmatterModel):
     hidden: bool = False
-    layout: str = "base"
     name: str
     photo: str | None = None
     slug: str | None = None
@@ -86,7 +67,6 @@ class Page(FrontmatterModel):
     heading: str | None = None
     hero_text_align: str | None = None  # homepage related
     hero_theme: str | None = None  # homepage related
-    layout: str | None = None
     testimonial_img: str | None = None  # homepage related
     testimonial_img_mobile: str | None = None  # homepage related
     title: str | None = None
@@ -98,7 +78,6 @@ class Post(FrontmatterModel):
     categories: list[str] | None = None
     date: pydatetime.datetime  # YYYY-MM-DD HH:MM:SS +/-TTTT
     image: str | None = None
-    layout: str | None = "post"
     slug: str | None = None
     tags: list[str] | None = []
 
@@ -111,23 +90,17 @@ class Presenter(FrontmatterModel):
     pronouns: str | None = None
     photo: str | None = None
     role: str | None = None
-    slug: str | None = None
     social: Social | None = None
 
     def __init__(self, **data):
         super().__init__(**data)
 
-        # if slugs are blank default them to slugify(name)
-        if not self.slug:
-            self.slug = slugify(self.name)
-
         # if permalink is blank, let's build a new one
         if not self.permalink:
-            self.permalink = f"/presenters/{self.slug}/"
+            self.permalink = f"/presenters/{slugify(self.name)}/"
 
 
 class Schedule(FrontmatterModel):
-    accepted: bool = False
     category: Literal[
         "break",
         "lunch",
@@ -139,25 +112,12 @@ class Schedule(FrontmatterModel):
     ]
     difficulty: str | None = "All"
     end_datetime: pydatetime.datetime | None = None
-    group: None | (
-        Literal[
-            "break",
-            "lunch",
-            "rooms",
-            "social-event",
-            "sprints",
-            "talks",
-            "tutorials",
-        ]
-    ) = None
-
+    sitemap: bool = True
     image: str | None = None
-    layout: str | None = "session-details"
     presenter_slugs: list[str] | None = None
     room: str | None = None
     show_video_urls: bool | None = None
     slides_url: str | None = None
-    slug: str = "talk"
     datetime: pydatetime.datetime | None
     tags: list[str] | None = None
     track: str | None = None
@@ -166,32 +126,13 @@ class Schedule(FrontmatterModel):
     def __init__(self, **data):
         super().__init__(**data)
 
-        # TODO check with Michael if we still need both group and category
-        if self.group != self.category:
-            self.group = self.category
-
 
 class ManualScheduleEntry(BaseModel):
     datetime: pydatetime.datetime
     end_datetime: pydatetime.datetime
-    group: Literal[
-        "break",
-        "lunch",
-        "rooms",
-        "social-event",
-        "sprints",
-        "talks",
-        "tutorials",
-    ]
     permalink: str | None
     room: str
     title: str
-    abstract: str = ""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not self.abstract:
-            self.abstract = self.room
 
 
 def migrate_mastodon_handle(*, handle: str) -> str:
@@ -212,7 +153,7 @@ POST_TYPES = [
 
 TRACKS = {
     "Junior Ballroom": "t0",
-    "Grand Ballroom II-III": "t1",
+    "Grand Ballroom III": "t1",
     # TODO figure out if we need to tweak the template for online talks or
     # how we want to adjust this
     "Online talks": "t2",
@@ -282,9 +223,7 @@ def presenters(
                 name=name,
                 # override_schedule_title: str | None = None
                 permalink=f"/presenters/{slugify(name)}/",
-                photo=default_profile_pic or row.get("Picture", ""),
-                # role: str | None
-                slug=slugify(name),
+                photo=default_profile_pic or row.get("Picture", None),
                 social=Social(
                     github=row.get("github"),
                     mastodon=row.get("What is your mastodon/fediverse handle?"),
@@ -407,15 +346,9 @@ def main(input_filename: Path, output_folder: Path = None):
             room = row["Room"]["en"]
             try:
                 data = Schedule(
-                    accepted=True
-                    if proposal_state in {"accepted", "confirmed"}
-                    else False,
                     category=TALK_FORMATS[talk_format],
                     # post["difficulty"] = submission["talk"]["audience_level"],
-                    layout="session-details",
                     permalink=f"/{TALK_FORMATS[talk_format]}/{talk_title_slug}/",
-                    sitemap=True,
-                    slug=talk_title_slug,
                     tags=row["Tags"],
                     title=row["Proposal title"]
                     .replace("<", "&lt;")
@@ -425,7 +358,6 @@ def main(input_filename: Path, output_folder: Path = None):
                     track=TRACKS.get(room, "t0"),
                     datetime=start_date,
                     end_datetime=end_date,
-                    summary="",
                 )
 
                 post.metadata.update(data.model_dump(exclude_unset=True))
@@ -439,17 +371,21 @@ def main(input_filename: Path, output_folder: Path = None):
                         / data.category
                         # TODO please make this less ugly
                         / f"{data.datetime.year}-{data.datetime.month:0>2}-{data.datetime.day:0>2}-"
-                        f"{data.datetime.hour:0>2}-{data.datetime.minute:0>2}-{data.track}-{data.slug}.md"
+                        f"{data.datetime.hour:0>2}-{data.datetime.minute:0>2}-{data.track}-{slugify(data.title)}.md"
                     )
                     output_path.write_text(frontmatter.dumps(post))
+                else:
+                    print(frontmatter.dumps(post))
 
             except ValidationError as e:
                 print(f"[red]{row}[/red]")
                 print(e.json())
+                raise
 
             except Exception as e:
                 print(f"[red]{e}[/red]")
                 print(row)
+                raise
 
 
 def migrate_mastodon_handle(*, handle: str) -> str | None:
