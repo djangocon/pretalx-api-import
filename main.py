@@ -34,7 +34,7 @@ class FrontmatterModel(BaseModel):
     permalink: str | None = None
     redirect_from: list[str] | None = None
     redirect_to: str | None = None  # via the jekyll-redirect-from plugin
-    sitemap: bool = True
+    sitemap: bool | None = None
     title: str | None = None
 
 
@@ -112,7 +112,7 @@ class Schedule(FrontmatterModel):
     ]
     difficulty: str | None = "All"
     end_datetime: pydatetime.datetime | None = None
-
+    sitemap: bool = True
     image: str | None = None
     presenter_slugs: list[str] | None = None
     room: str | None = None
