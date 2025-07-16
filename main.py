@@ -335,7 +335,13 @@ def main(input_filename: Path, output_folder: Path = None):
                 end_date = parse(raw_end_date).astimezone(CONFERENCE_TZ)
             if start_date and TALK_FORMATS.get(talk_format) == "tutorials":
                 end_date = start_date + TUTORIAL_LENGTH_OVERRIDE
-            room = row["Room"]["en"]
+            try:
+                room = row["Room"]["en"]
+            except TypeError:
+                if row['Room'] is None:
+                    print(f"[red]Skipping {row['Proposal title']} because it is not assigned to a room[/red]")
+                    continue
+                raise
             try:
                 data = Schedule(
                     category=TALK_FORMATS[talk_format],
