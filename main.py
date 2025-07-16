@@ -20,7 +20,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel
 
 
-CONFERENCE_TZ = pytz.timezone("America/New_York")
+CONFERENCE_TZ = pytz.timezone("America/Chicago")
 # we listed tutorials as being 180 minutes in pretalx but we
 # want to have them take up 210 minutes in the layout
 TUTORIAL_LENGTH_OVERRIDE = relativedelta(hours=3, minutes=30)
@@ -135,14 +135,6 @@ class ManualScheduleEntry(BaseModel):
     title: str
 
 
-def migrate_mastodon_handle(*, handle: str) -> str:
-    if not handle.startswith("@"):
-        return handle
-
-    username, domain = handle[1:].split("@")
-    return f"https://{domain}/@{username}"
-
-
 POST_TYPES = [
     {"path": "_organizers", "class_name": Organizer},
     {"path": "_pages", "class_name": Page},
@@ -152,8 +144,8 @@ POST_TYPES = [
 ]
 
 TRACKS = {
-    "Junior Ballroom": "t0",
-    "Grand Ballroom III": "t1",
+    "Room A": "t0",
+    "Room B": "t1",
     # TODO figure out if we need to tweak the template for online talks or
     # how we want to adjust this
     "Online talks": "t2",
