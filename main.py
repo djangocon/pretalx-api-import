@@ -118,7 +118,7 @@ class Schedule(FrontmatterModel):
     room: str | None = None
     show_video_urls: bool | None = None
     slides_url: str | None = None
-    datetime: pydatetime.datetime | None
+    start_datetime: pydatetime.datetime | None
     tags: list[str] | None = None
     track: str | None = None
     video_url: str | None = None
@@ -141,7 +141,7 @@ class Schedule(FrontmatterModel):
 
 
 class ManualScheduleEntry(BaseModel):
-    datetime: pydatetime.datetime
+    start_datetime: pydatetime.datetime
     end_datetime: pydatetime.datetime
     permalink: str | None
     room: str
@@ -380,7 +380,7 @@ def main(input_filename: Path, output_folder: Path = None):
                     presenter_slugs=[slugify(name) for name in row["Speaker names"]],
                     room=room,
                     track=TRACKS.get(room, "t0"),
-                    datetime=start_date,
+                    start_datetime=start_date,
                     end_datetime=end_date,
                 )
 
