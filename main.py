@@ -126,6 +126,19 @@ class Schedule(FrontmatterModel):
     def __init__(self, **data):
         super().__init__(**data)
 
+    @property
+    def filename(self) -> str:
+        return (
+            "-".join(
+                [
+                    self.start_datetime.strftime("%Y-%m-%d-%H-%M"),
+                    self.track,
+                    slugify(self.title),
+                ]
+            )
+            + ".md"
+        )
+
 
 class ManualScheduleEntry(BaseModel):
     datetime: pydatetime.datetime
@@ -133,6 +146,19 @@ class ManualScheduleEntry(BaseModel):
     permalink: str | None
     room: str
     title: str
+
+    @property
+    def filename(self) -> str:
+        return (
+            "-".join(
+                [
+                    self.start_datetime.strftime("%Y-%m-%d-%H-%M"),
+                    "t0",
+                    slugify(self.title),
+                ]
+            )
+            + ".md"
+        )
 
 
 POST_TYPES = [
@@ -367,9 +393,7 @@ def main(input_filename: Path, output_folder: Path = None):
                         / "_content"
                         / POST_TYPES[-1]["path"]
                         / data.category
-                        # TODO please make this less ugly
-                        / f"{data.datetime.year}-{data.datetime.month:0>2}-{data.datetime.day:0>2}-"
-                        f"{data.datetime.hour:0>2}-{data.datetime.minute:0>2}-{data.track}-{slugify(data.title)}.md"
+                        / data.filename
                     )
                     output_path.write_text(frontmatter.dumps(post))
                 else:
