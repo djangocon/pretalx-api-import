@@ -364,8 +364,10 @@ def main(input_filename: Path, output_folder: Path = None):
             try:
                 room = row["Room"]["en"]
             except TypeError:
-                if row['Room'] is None:
-                    print(f"[red]Skipping {row['Proposal title']} because it is not assigned to a room[/red]")
+                if row["Room"] is None:
+                    print(
+                        f"[red]Skipping {row['Proposal title']} because it is not assigned to a room[/red]"
+                    )
                     continue
                 raise
             try:
