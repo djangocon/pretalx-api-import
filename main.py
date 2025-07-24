@@ -118,7 +118,7 @@ class Schedule(FrontmatterModel):
     room: str | None = None
     show_video_urls: bool | None = None
     slides_url: str | None = None
-    datetime: pydatetime.datetime | None
+    start_datetime: pydatetime.datetime | None
     tags: list[str] | None = None
     track: str | None = None
     video_url: str | None = None
@@ -126,13 +126,39 @@ class Schedule(FrontmatterModel):
     def __init__(self, **data):
         super().__init__(**data)
 
+    @property
+    def filename(self) -> str:
+        return (
+            "-".join(
+                [
+                    self.start_datetime.strftime("%Y-%m-%d-%H-%M"),
+                    self.track,
+                    slugify(self.title),
+                ]
+            )
+            + ".md"
+        )
+
 
 class ManualScheduleEntry(BaseModel):
-    datetime: pydatetime.datetime
+    start_datetime: pydatetime.datetime
     end_datetime: pydatetime.datetime
     permalink: str | None
     room: str
     title: str
+
+    @property
+    def filename(self) -> str:
+        return (
+            "-".join(
+                [
+                    self.start_datetime.strftime("%Y-%m-%d-%H-%M"),
+                    "t0",
+                    slugify(self.title),
+                ]
+            )
+            + ".md"
+        )
 
 
 POST_TYPES = [
@@ -338,8 +364,10 @@ def main(input_filename: Path, output_folder: Path = None):
             try:
                 room = row["Room"]["en"]
             except TypeError:
-                if row['Room'] is None:
-                    print(f"[red]Skipping {row['Proposal title']} because it is not assigned to a room[/red]")
+                if row["Room"] is None:
+                    print(
+                        f"[red]Skipping {row['Proposal title']} because it is not assigned to a room[/red]"
+                    )
                     continue
                 raise
             try:
@@ -354,7 +382,7 @@ def main(input_filename: Path, output_folder: Path = None):
                     presenter_slugs=[slugify(name) for name in row["Speaker names"]],
                     room=room,
                     track=TRACKS.get(room, "t0"),
-                    datetime=start_date,
+                    start_datetime=start_date,
                     end_datetime=end_date,
                 )
 
@@ -367,9 +395,7 @@ def main(input_filename: Path, output_folder: Path = None):
                         / "_content"
                         / POST_TYPES[-1]["path"]
                         / data.category
-                        # TODO please make this less ugly
-                        / f"{data.datetime.year}-{data.datetime.month:0>2}-{data.datetime.day:0>2}-"
-                        f"{data.datetime.hour:0>2}-{data.datetime.minute:0>2}-{data.track}-{slugify(data.title)}.md"
+                        / data.filename
                     )
                     output_path.write_text(frontmatter.dumps(post))
                 else:
